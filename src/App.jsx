@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, TrendingUp, TrendingDown, Wallet, Trash2, Edit2, X, PieChart as PieChartIcon, Calendar, ChevronLeft, ChevronRight, BookOpen, MoreVertical, LogOut, User } from 'lucide-react'
+import { Plus, Wallet, ChevronRight, User, PieChart as PieChartIcon, Calendar } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import cloudbase from '@cloudbase/js-sdk'
+
+import LoginModal from './components/LoginModal'
+import TransactionModal from './components/TransactionModal'
+import LedgerModal from './components/LedgerModal'
+import LogsPanel from './components/LogsPanel'
+import UserMenu from './components/UserMenu'
+import LedgerDropdown from './components/LedgerDropdown'
+import StatsCards from './components/StatsCards'
+import TransactionItem from './components/TransactionItem'
 
 const app = cloudbase.init({
   env: 'river-test-5g9ny38h5b552538'
@@ -52,6 +61,11 @@ function App() {
 
   const [filterType, setFilterType] = useState('all')
 
+  const [showLogsPanel, setShowLogsPanel] = useState(false)
+  const [logs, setLogs] = useState([])
+  const [loadingLogs, setLoadingLogs] = useState(false)
+  const logsCollection = db.collection('operation_logs')
+
   const [dateRange, setDateRange] = useState({
     startDate: '',
     endDate: ''
@@ -60,6 +74,12 @@ function App() {
   useEffect(() => {
     checkLoginState()
   }, [])
+
+  useEffect(() => {
+    if (user && showLogsPanel) {
+      fetchLogs()
+    }
+  }, [user, showLogsPanel])
 
   const checkLoginState = async () => {
     try {
@@ -73,6 +93,39 @@ function App() {
     } catch (error) {
       console.error('检查登录状态失败:', error)
       setLoading(false)
+    }
+  }
+
+  const fetchLogs = async () => {
+    if (!user) return
+
+    setLoadingLogs(true)
+    try {
+      const res = await logsCollection.orderBy('timestamp', 'desc').limit(50).get()
+      setLogs(res.data)
+    } catch (error) {
+      console.error('获取日志失败:', error)
+    } finally {
+      setLoadingLogs(false)
+    }
+  }
+
+  const addLog = async (action, ledgerName, details) => {
+    if (!user) return
+
+    try {
+      await logsCollection.add({
+        action,
+        ledgerName,
+        details,
+        timestamp: new Date().toISOString(),
+        userId: user?.uid || ''
+      })
+      if (showLogsPanel) {
+        fetchLogs()
+      }
+    } catch (error) {
+      console.error('添加日志失败:', error)
     }
   }
 
@@ -107,7 +160,6 @@ function App() {
     try {
       const res = await auth.getVerification({ phone_number: `+86 ${loginForm.phone}` })
       setVerificationInfo(res)
-      alert('验证码已发送到手机')
       setCountdown(60)
       const timer = setInterval(() => {
         setCountdown(prev => {
@@ -184,14 +236,7 @@ function App() {
 
   const [showChart, setShowChart] = useState(true)
 
-  const categories = {
-    income: ['工资', '投资', '兼职', '奖金', '其他'],
-    expense: ['餐饮', '购物', '交通', '娱乐', '医疗', '教育', '住房', '其他']
-  }
-
   const colors = ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#06b6d4', '#84cc16']
-
-  const availableIcons = ['💰', '🏠', '🎯', '💼', '📈', '🎨', '🎮', '📚', '🌟', '🎁', '🔔', '💡', '🎪', '🚀', '🌈']
 
   const handleCreateLedger = async (e) => {
     e.preventDefault()
@@ -215,7 +260,12 @@ function App() {
       setCurrentLedgerId(createdLedger.id)
       setLedgerFormData({ name: '', icon: '💰' })
       setShowLedgerModal(false)
-      alert('账本创建成功')
+      setShowLedgerDropdown(false)
+
+      await addLog('create_ledger', createdLedger.name, {
+        ledgerName: createdLedger.name,
+        ledgerIcon: createdLedger.icon
+      })
     } catch (error) {
       console.error('创建账本失败:', error)
       alert('创建账本失败: ' + error.message)
@@ -233,7 +283,6 @@ function App() {
         const ledgerToDelete = ledgers.find(l => l.id === ledgerId)
 
         if (ledgerToDelete) {
-          // 使用数据库的原始 _id 字段来删除
           const docId = ledgerToDelete._id || ledgerToDelete.id
 
           if (!docId) {
@@ -241,6 +290,10 @@ function App() {
           }
 
           await collection.doc(docId).remove()
+
+          await addLog('delete_ledger', ledgerToDelete.name, {
+            ledgerName: ledgerToDelete.name
+          })
         }
 
         const newLedgers = ledgers.filter(l => l.id !== ledgerId)
@@ -250,8 +303,7 @@ function App() {
           setCurrentLedgerId(newLedgers[0].id)
         }
 
-        setShowLedgerMenu(null)
-        alert('账本删除成功')
+        setShowLedgerDropdown(false)
       } catch (error) {
         console.error('删除账本失败:', error)
         alert('删除账本失败: ' + error.message)
@@ -365,11 +417,17 @@ function App() {
 
     try {
       if (editingTransaction) {
-        await handleUpdateLedgerTransactions(transactions.map(t =>
+        const newTransactions = transactions.map(t =>
           t.id === editingTransaction.id
             ? { ...transactionData, id: editingTransaction.id }
             : t
-        ))
+        )
+        await handleUpdateLedgerTransactions(newTransactions)
+
+        await addLog('edit_transaction', currentLedger.name, {
+          oldData: editingTransaction,
+          newData: transactionData
+        })
       } else {
         const newTransactions = [
           {
@@ -380,6 +438,14 @@ function App() {
           ...transactions
         ]
         await handleUpdateLedgerTransactions(newTransactions)
+
+        await addLog('add_transaction', currentLedger.name, {
+          type: transactionData.type,
+          amount: transactionData.amount,
+          category: transactionData.category,
+          date: transactionData.date,
+          note: transactionData.note
+        })
       }
       handleCloseModal()
     } catch (error) {
@@ -388,75 +454,39 @@ function App() {
   }
 
   const handleDelete = async (id) => {
+    const transactionToDelete = transactions.find(t => t.id === id)
     if (window.confirm('确定要删除这条记录吗？')) {
       await handleUpdateLedgerTransactions(transactions.filter(t => t.id !== id))
+
+      if (transactionToDelete) {
+        await addLog('delete_transaction', currentLedger.name, {
+          type: transactionToDelete.type,
+          amount: transactionToDelete.amount,
+          category: transactionToDelete.category,
+          date: transactionToDelete.date,
+          note: transactionToDelete.note
+        })
+      }
     }
   }
 
   return (
     <div className="min-h-screen">
-      {/* Login Modal */}
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 w-full max-w-md">
-            <h2 className="text-2xl font-bold text-slate-800 mb-6">手机号登录</h2>
+      <LoginModal
+        show={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        loginForm={loginForm}
+        onLoginFormChange={setLoginForm}
+        sendingCode={sendingCode}
+        countdown={countdown}
+        onSendCode={sendCode}
+        onLogin={handleLogin}
+      />
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">手机号</label>
-                <input
-                  type="tel"
-                  value={loginForm.phone}
-                  onChange={(e) => setLoginForm(prev => ({ ...prev, phone: e.target.value }))}
-                  placeholder="13800138000"
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">验证码</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={loginForm.code}
-                    onChange={(e) => setLoginForm(prev => ({ ...prev, code: e.target.value }))}
-                    placeholder="请输入验证码"
-                    className="flex-1 px-4 py-3 rounded-lg border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
-                  />
-                  <button
-                    onClick={sendCode}
-                    disabled={sendingCode || countdown > 0}
-                    className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed whitespace-nowrap min-w-[120px]"
-                  >
-                    {countdown > 0 ? `${countdown}s` : sendingCode ? '发送中...' : '获取验证码'}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                onClick={handleLogin}
-                className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-medium transition-all"
-              >
-                登录
-              </button>
-
-              <button
-                onClick={() => setShowLoginModal(false)}
-                className="w-full py-3 text-slate-500 hover:text-slate-700"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Top Bar */}
       <div className="bg-white shadow-sm border-b border-slate-200 px-4 py-3">
         <div className="container mx-auto max-w-4xl flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-800">记账本</h1>
 
-          {/* User Menu */}
           {user ? (
             <div className="relative">
               <button
@@ -471,22 +501,18 @@ function App() {
               </button>
 
               {showUserMenu && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden z-30">
-                  <div className="px-4 py-2 border-b border-slate-100">
-                    <p className="text-xs text-slate-500">当前账号</p>
-                    <p className="text-sm font-medium text-slate-800">{user?.name || '用户'}</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      handleLogout()
-                      setShowUserMenu(false)
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-slate-50 text-red-600 hover:text-red-700 transition-colors"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    退出登录
-                  </button>
-                </div>
+                <UserMenu
+                  show={showUserMenu}
+                  user={user}
+                  onLogout={() => {
+                    handleLogout()
+                    setShowUserMenu(false)
+                  }}
+                  onShowLogs={() => {
+                    setShowLogsPanel(true)
+                    setShowUserMenu(false)
+                  }}
+                />
               )}
             </div>
           ) : (
@@ -524,7 +550,6 @@ function App() {
         </div>
       ) : (
         <div className="container mx-auto px-4 py-8 max-w-4xl">
-          {/* Header with Ledger Dropdown */}
           <div className="mb-8">
             <div className="relative">
               <button
@@ -539,107 +564,30 @@ function App() {
                 <ChevronRight className={`w-5 h-5 text-slate-400 transition-transform ${showLedgerDropdown ? 'rotate-90' : ''}`} />
               </button>
 
-              {/* Dropdown Menu */}
-              {showLedgerDropdown && (
-                <div className="absolute left-0 top-full mt-2 w-full bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
-                  <div className="p-3 border-b border-slate-100">
-                    <button
-                      onClick={() => setShowLedgerModal(true)}
-                      className="w-full flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-primary to-secondary text-white rounded-xl font-medium shadow-lg shadow-primary/30 hover:shadow-xl transition-all"
-                    >
-                      <Plus className="w-5 h-5" />
-                      新建账本
-                    </button>
-                </div>
-
-                <div className="max-h-80 overflow-y-auto">
-                  {ledgers.map(ledger => (
-                    <div key={ledger.id} className="relative group pr-8">
-                      <button
-                        onClick={() => {
-                          setCurrentLedgerId(ledger.id)
-                          setShowLedgerDropdown(false)
-                        }}
-                        className={`w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors ${
-                          currentLedgerId === ledger.id ? 'bg-primary/5' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-2xl">{ledger.icon}</span>
-                          <div className="text-left">
-                            <div className={`font-medium ${currentLedgerId === ledger.id ? 'text-primary' : 'text-slate-800'}`}>
-                              {ledger.name}
-                            </div>
-                            <div className="text-xs text-slate-400">
-                              {ledger.transactions.length} 条记录
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="relative w-8 h-8 flex items-center justify-center">
-                          {currentLedgerId === ledger.id && (
-                            <div className={`absolute w-2 h-2 rounded-full bg-primary transition-opacity duration-200 ${
-                              ledgers.length > 1 ? 'group-hover:opacity-0' : ''
-                            }`}></div>
-                          )}
-                        </div>
-                      </button>
-
-                      {ledgers.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteLedger(ledger.id)
-                          }}
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-red-50 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 className="w-4 h-4 text-red-400 hover:text-red-500" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <p className="text-slate-500 text-sm">轻松管理您的收支</p>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-2xl p-6 shadow-lg shadow-slate-200/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 text-sm">总收入</span>
-              <TrendingUp className="w-5 h-5 text-success" />
+              <LedgerDropdown
+                show={showLedgerDropdown}
+                currentLedger={currentLedger}
+                ledgers={ledgers}
+                currentLedgerId={currentLedgerId}
+                onSelectLedger={(id) => {
+                  setCurrentLedgerId(id)
+                  setShowLedgerDropdown(false)
+                }}
+                onCreateLedger={() => setShowLedgerModal(true)}
+                onDeleteLedger={handleDeleteLedger}
+              />
             </div>
-            <div className="text-3xl font-bold text-success">
-              ¥{totalIncome.toLocaleString()}
+
+            <div className="flex items-center gap-2">
+              <p className="text-slate-500 text-sm">轻松管理您的收支</p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 shadow-lg shadow-slate-200/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 text-sm">总支出</span>
-              <TrendingDown className="w-5 h-5 text-danger" />
-            </div>
-            <div className="text-3xl font-bold text-danger">
-              ¥{totalExpense.toLocaleString()}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-lg shadow-slate-200/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-slate-500 text-sm">余额</span>
-              <Wallet className="w-5 h-5 text-primary" />
-            </div>
-            <div className={`text-3xl font-bold ${balance >= 0 ? 'text-primary' : 'text-danger'}`}>
-              ¥{balance.toLocaleString()}
-            </div>
-          </div>
-        </div>
+          <StatsCards
+            totalIncome={totalIncome}
+            totalExpense={totalExpense}
+            balance={balance}
+          />
 
         {/* Action Bar */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -846,7 +794,6 @@ function App() {
           </div>
         )}
 
-        {/* Transactions List */}
         <div className="space-y-3">
           {filteredTransactions.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center">
@@ -856,243 +803,43 @@ function App() {
             </div>
           ) : (
             filteredTransactions.map((transaction) => (
-              <div
+              <TransactionItem
                 key={transaction.id}
-                className="bg-white rounded-2xl p-5 shadow-lg shadow-slate-200/50 hover:shadow-xl transition-all"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        transaction.type === 'income'
-                          ? 'bg-success/10 text-success'
-                          : 'bg-danger/10 text-danger'
-                      }`}>
-                        {transaction.type === 'income' ? (
-                          <TrendingUp className="w-5 h-5" />
-                        ) : (
-                          <TrendingDown className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-800">{transaction.category}</h3>
-                        <p className="text-sm text-slate-400">{transaction.date}</p>
-                      </div>
-                    </div>
-                    {transaction.note && (
-                      <p className="text-slate-500 text-sm ml-13">{transaction.note}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className={`text-2xl font-bold ${
-                      transaction.type === 'income' ? 'text-success' : 'text-danger'
-                    }`}>
-                      {transaction.type === 'income' ? '+' : '-'}¥{transaction.amount.toLocaleString()}
-                    </div>
-
-                    <div className="flex gap-1">
-                      <button
-                        onClick={() => handleOpenModal(transaction)}
-                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                        title="编辑"
-                      >
-                        <Edit2 className="w-4 h-4 text-slate-400" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                        title="删除"
-                      >
-                        <Trash2 className="w-4 h-4 text-slate-400 hover:text-danger" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                transaction={transaction}
+                onEdit={() => handleOpenModal(transaction)}
+                onDelete={() => handleDelete(transaction.id)}
+              />
             ))
           )}
         </div>
 
-        {/* Transaction Count */}
         <div className="mt-6 text-center text-slate-400 text-sm">
           共 {filteredTransactions.length} 条记录
         </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">
-                {editingTransaction ? '编辑记录' : '添加记录'}
-              </h2>
-              <button
-                onClick={handleCloseModal}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="w-6 h-6 text-slate-400" />
-              </button>
-            </div>
+        <LogsPanel
+          show={showLogsPanel}
+          logs={logs}
+          loadingLogs={loadingLogs}
+          onClose={() => setShowLogsPanel(false)}
+        />
 
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Type Toggle */}
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, type: 'expense' })}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                    formData.type === 'expense'
-                      ? 'bg-danger text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  支出
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, type: 'income' })}
-                  className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                    formData.type === 'income'
-                      ? 'bg-success text-white'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  收入
-                </button>
-              </div>
+        <TransactionModal
+          show={showModal}
+          onClose={handleCloseModal}
+          editingTransaction={editingTransaction}
+          formData={formData}
+          onFormDataChange={setFormData}
+          onSubmit={handleSubmit}
+        />
 
-              {/* Amount */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  金额
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  placeholder="请输入金额"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Category */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  分类
-                </label>
-                <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none transition-colors"
-                >
-                  <option value="">请选择分类</option>
-                  {categories[formData.type].map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  日期
-                </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Note */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  备注（可选）
-                </label>
-                <textarea
-                  value={formData.note}
-                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-                  placeholder="添加备注..."
-                  rows={2}
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none transition-colors resize-none"
-                />
-              </div>
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-primary to-secondary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all hover:-translate-y-0.5"
-              >
-                {editingTransaction ? '保存修改' : '添加记录'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Create Ledger Modal */}
-      {showLedgerModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-800">新建账本</h2>
-              <button
-                onClick={() => setShowLedgerModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="w-6 h-6 text-slate-400" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateLedger} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  账本名称
-                </label>
-                <input
-                  type="text"
-                  value={ledgerFormData.name}
-                  onChange={(e) => setLedgerFormData({ ...ledgerFormData, name: e.target.value })}
-                  placeholder="例如：日常开销"
-                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-3">
-                  选择图标
-                </label>
-                <div className="grid grid-cols-8 gap-2">
-                  {availableIcons.map(icon => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setLedgerFormData({ ...ledgerFormData, icon })}
-                      className={`w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all ${
-                        ledgerFormData.icon === icon
-                          ? 'bg-primary text-white scale-110'
-                          : 'bg-slate-100 hover:bg-slate-200'
-                      }`}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-primary to-secondary text-white py-4 rounded-xl font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all hover:-translate-y-0.5"
-              >
-                创建账本
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+        <LedgerModal
+          show={showLedgerModal}
+          onClose={() => setShowLedgerModal(false)}
+          ledgerFormData={ledgerFormData}
+          onLedgerFormChange={setLedgerFormData}
+          onSubmit={handleCreateLedger}
+        />
         </div>
       )}
     </div>

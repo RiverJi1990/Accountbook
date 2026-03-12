@@ -29,3 +29,6 @@ dist-ssr
 
 # CloudBase
 .cloudbaserc.cache
+
+# CodeBuddy AI Editor data
+.codebuddy/
