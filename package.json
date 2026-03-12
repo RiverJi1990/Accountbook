@@ -1,0 +1,25 @@
+{
+  "name": "expense-tracker",
+  "version": "1.0.0",
+  "description": "一个简洁美观的记账本web应用",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@cloudbase/extension-sms": "^0.0.2",
+    "@cloudbase/js-sdk": "^2.25.11",
+    "lucide-react": "^0.330.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.15.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.0"
+  }
+}
