@@ -1,7 +1,7 @@
 import React from 'react'
 import { History } from 'lucide-react'
 
-export default function LogsPanel({ show, logs, loadingLogs, onClose }) {
+export default function LogsPanel({ show, logs, loadingLogs, onClose, hideCloseButton = false }) {
   return (
     show && (
       <div className="mt-8">
@@ -10,12 +10,14 @@ export default function LogsPanel({ show, logs, loadingLogs, onClose }) {
             <History className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-semibold text-slate-800">操作日志</h3>
           </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-primary hover:bg-slate-50 rounded-lg transition-all"
-          >
-            关闭
-          </button>
+          {!hideCloseButton && (
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-primary hover:bg-slate-50 rounded-lg transition-all"
+            >
+              关闭
+            </button>
+          )}
         </div>
 
         {loadingLogs ? (
@@ -74,6 +76,12 @@ function LogItem({ log }) {
               {new Date(log.timestamp).toLocaleString('zh-CN')}
             </span>
           </div>
+
+          {log.userName && (
+            <p className="text-sm text-slate-600 mb-2">
+              操作人：{log.userName}
+            </p>
+          )}
 
           {log.ledgerName && (
             <p className="text-sm text-slate-600 mb-2">
