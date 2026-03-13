@@ -96,6 +96,12 @@ cloudbase hosting deploy dist -e river-test-5g9ny38h5b552538
 - **代码分割**: 应用代码按功能模块分割，减少首屏加载时间
 - **生产优化**: 构建时自动移除console.log，压缩代码，关闭sourcemap
 - **环境变量**: 敏感配置通过环境变量管理，避免硬编码
+- **骨架屏加载**: 提供优雅的加载状态，改善用户感知性能
+
+### 用户体验
+- **骨架屏**: 数据加载时显示结构化的占位符，提升视觉连续性
+- **平滑过渡**: 所有状态切换都有动画过渡效果
+- **响应式设计**: 完美适配各种设备尺寸
 
 ## 📂 项目结构
 
@@ -123,7 +129,8 @@ Accountbook/
         ├── LedgerDropdown.jsx  # 账本选择
         ├── StatsCards.jsx      # 统计卡片
         ├── TransactionItem.jsx # 交易条目
-        └── ErrorBoundary.jsx   # 错误边界组件
+        ├── ErrorBoundary.jsx   # 错误边界组件
+        └── Skeleton.jsx       # 骨架屏加载组件
 ```
 
 ## 🎯 分类说明
