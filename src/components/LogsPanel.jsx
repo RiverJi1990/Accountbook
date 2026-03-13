@@ -96,6 +96,9 @@ function LogItem({ log }) {
                 <p>金额：¥{log.details.amount?.toLocaleString()}</p>
                 <p>分类：{log.details.category}</p>
                 <p>日期：{log.details.date}</p>
+                {log.details.note && (
+                  <p>备注：{log.details.note}</p>
+                )}
               </>
             )}
             {log.action === 'delete_transaction' && (
@@ -104,12 +107,28 @@ function LogItem({ log }) {
                 <p>金额：¥{log.details.amount?.toLocaleString()}</p>
                 <p>分类：{log.details.category}</p>
                 <p>日期：{log.details.date}</p>
+                {log.details.note && (
+                  <p>备注：{log.details.note}</p>
+                )}
               </>
             )}
             {log.action === 'edit_transaction' && (
               <>
                 <p>分类：{log.details.newData.category}</p>
                 <p>金额：¥{log.details.newData.amount?.toLocaleString()}</p>
+                {log.details.oldData?.note !== log.details.newData?.note && (
+                  <>
+                    {log.details.oldData?.note && (
+                      <p>原备注：{log.details.oldData.note}</p>
+                    )}
+                    {log.details.newData?.note && (
+                      <p>新备注：{log.details.newData.note}</p>
+                    )}
+                  </>
+                )}
+                {log.details.newData?.note && log.details.oldData?.note === log.details.newData?.note && (
+                  <p>备注：{log.details.newData.note}</p>
+                )}
               </>
             )}
             {log.action === 'create_ledger' && (
