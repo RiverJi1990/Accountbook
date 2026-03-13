@@ -85,6 +85,18 @@ cloudbase hosting deploy dist -e river-test-5g9ny38h5b552538
 9. **删除记录**：点击记录右侧的删除图标移除记录
 10. **查看日志**：点击用户菜单中的"修改日志"查看操作历史
 
+## 🛡️ 应用稳定性
+
+### 错误处理
+- **Error Boundary**: 应用已集成 React Error Boundary，当组件抛出未处理的错误时，会显示友好的错误页面
+- **优雅降级**: 用户可以通过"刷新页面重试"按钮恢复应用
+- **错误日志**: 所有未捕获的错误都会记录到控制台，便于调试
+
+### 性能优化
+- **代码分割**: 应用代码按功能模块分割，减少首屏加载时间
+- **生产优化**: 构建时自动移除console.log，压缩代码，关闭sourcemap
+- **环境变量**: 敏感配置通过环境变量管理，避免硬编码
+
 ## 📂 项目结构
 
 ```
@@ -110,7 +122,8 @@ Accountbook/
         ├── UserMenu.jsx        # 用户菜单
         ├── LedgerDropdown.jsx  # 账本选择
         ├── StatsCards.jsx      # 统计卡片
-        └── TransactionItem.jsx # 交易条目
+        ├── TransactionItem.jsx # 交易条目
+        └── ErrorBoundary.jsx   # 错误边界组件
 ```
 
 ## 🎯 分类说明
