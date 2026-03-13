@@ -8,6 +8,7 @@
 - **更新2 (增强日志调试 + 修复权限)**: 2026-03-12
 - **更新3 (账号信息移至右上角)**: 2026-03-12
 - **更新4 (账号信息移至网页右上角)**: 2026-03-12
+- **更新5 (错误边界和骨架屏)**: 2026-03-13
 
 ### 部署环境
 - **云服务提供商**: 腾讯云 CloudBase
@@ -20,10 +21,15 @@
 **生产环境**: https://river-test-5g9ny38h5b552538-1410448083.tcloudbaseapp.com/
 
 ### 部署内容
-- ✅ index.html (613 bytes)
-- ✅ assets/index-CegRNGPG.css (19.07 KB)
-- ✅ assets/encrypt-Drywr12W.js (35.59 KB)
-- ✅ assets/index-CCfYDPoh.js (1.33 MB)
+- ✅ index.html (0.86 KB)
+- ✅ assets/index-Bg5E6l7J.css (19.94 KB)
+- ✅ assets/vendor-CXAFykLK.js (0.06 KB)
+- ✅ assets/icons-BBYtv8Xi.js (10.56 KB)
+- ✅ assets/encrypt-Ch7QxkPh.js (35.33 KB)
+- ✅ assets/index-C4tuw2n8.js (36.54 KB)
+- ✅ assets/charts-YbjEh3fK.js (489.39 KB)
+- ✅ assets/cloudbase-jz5qiLnn.js (766.24 KB)
+- **总计**: ~1.36 MB (gzip 后 ~355 KB)
 
 ### CloudBase 配置
 - **静态网站托管**: 已开通
@@ -48,6 +54,11 @@
 ✅ 响应式设计
 ✅ 侧边栏导航（支持收起/展开）
 ✅ 账号信息右上角显示
+✅ 错误边界（ErrorBoundary）
+✅ 骨架屏加载（Skeleton）
+✅ 环境变量管理
+✅ 代码分割优化
+✅ 生产构建优化
 
 ## 更新日志
 
@@ -64,6 +75,15 @@
 - ✅ 账号信息移至网页右上角(非侧边栏内)
 - ✅ 点击账号显示退出选项
 - ✅ 退出登录增加二次确认对话框
+
+### 2026-03-13
+- ✅ 添加 ErrorBoundary 错误边界组件，增强应用稳定性
+- ✅ 创建完整的骨架屏组件系统，提升用户感知性能
+- ✅ 实现环境变量管理，保护敏感配置信息
+- ✅ 优化 Vite 构建配置，实现代码分割和压缩优化
+- ✅ 移除生产环境 console.log，减少包大小
+- ✅ 关闭生产环境 sourcemap，提升加载速度
+- ✅ 部署最新版本到 CloudBase 静态托管
 
 ### 关于操作日志
 **说明**: 操作日志功能会自动记录以下操作：
@@ -101,5 +121,7 @@
 
 ## 性能指标
 - 首屏加载时间: < 2s
-- 构建包大小: ~1.38 MB (gzip 后 ~354 KB)
+- 构建包大小: ~1.36 MB (gzip 后 ~355 KB)
 - CDN 加速: 已启用
+- 代码分割: 8 个独立 chunk
+- 生产优化: Terser 压缩，移除 console.log
