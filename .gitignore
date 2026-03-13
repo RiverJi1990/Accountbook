@@ -32,3 +32,14 @@ dist-ssr
 
 # CodeBuddy AI Editor data
 .codebuddy/
+
+# Environment variables
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Local environment files
+.env
+!.env.example

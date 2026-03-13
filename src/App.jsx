@@ -13,7 +13,7 @@ import StatsCards from './components/StatsCards'
 import TransactionItem from './components/TransactionItem'
 
 const app = cloudbase.init({
-  env: 'river-test-5g9ny38h5b552538'
+  env: import.meta.env.VITE_CLOUDBASE_ENV_ID || 'river-test-5g9ny38h5b552538'
 })
 
 const auth = app.auth()
