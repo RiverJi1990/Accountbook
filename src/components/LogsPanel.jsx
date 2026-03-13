@@ -1,5 +1,6 @@
 import React from 'react'
 import { History } from 'lucide-react'
+import Skeleton from './Skeleton'
 
 export default function LogsPanel({ show, logs, loadingLogs, onClose, hideCloseButton = false }) {
   return (
@@ -21,8 +22,8 @@ export default function LogsPanel({ show, logs, loadingLogs, onClose, hideCloseB
         </div>
 
         {loadingLogs ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="py-8">
+            <Skeleton type="text" lines={5} />
           </div>
         ) : logs.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center shadow-lg shadow-slate-200/50">

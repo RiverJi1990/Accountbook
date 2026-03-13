@@ -11,6 +11,7 @@ import Sidebar from './components/Sidebar'
 import LedgerDropdown from './components/LedgerDropdown'
 import StatsCards from './components/StatsCards'
 import TransactionItem from './components/TransactionItem'
+import Skeleton, { PageSkeleton } from './components/Skeleton'
 
 const app = cloudbase.init({
   env: import.meta.env.VITE_CLOUDBASE_ENV_ID || 'river-test-5g9ny38h5b552538'
@@ -542,11 +543,8 @@ function App() {
           </div>
         </div>
       ) : loading ? (
-        <div className="flex-1 flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-slate-500">加载中...</p>
-          </div>
+        <div className="flex-1">
+          <PageSkeleton />
         </div>
       ) : (
         <>
